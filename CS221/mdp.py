@@ -156,3 +156,41 @@ def draw_mdp_graph(mdp: MDP):
                     recurse(step.state)
     recurse(mdp.start_state())
     return dot
+
+class RLAlgorithm:
+    def get_action(self, state: Any) -> Any:
+        raise NotImplementedError
+    def incorporate_feedback(self, state: Any, action: Any, reward: float, next_state: Any, is_end: bool):
+        raise NotImplementedError
+
+def sample_transition(mdp: MDP, state: Any, action: Any) -> Step:
+    steps = [successor for successor in mdp.successors(state) if successor.action == action]
+    probs = [step.prob for step in steps]
+    choice = np.random.choice(len(steps), p=probs)
+    return steps[choice]
+
+# Simulate multiple rollouts with an agent and MDP
+# Policy: provided by agent
+# Rollout environment: provided by MDP
+# Return: utility of each rollout
+def simulate(mdp: MDP, rl: RLAlgorithm, num_trials: int = 20) -> List[float]:
+    utilities = []
+    for _ in range(num_trials):
+        state = mdp.start_state()
+        steps = []
+        while not mdp.is_end(state):
+            action = rl.get_action(state)
+            step = sample_transition(mdp, state, action)
+             # !!end state should be next state in stead of state
+            rl.incorporate_feedback(state, action, step.reward, step.state, mdp.is_end(step.state))
+            steps.append(step)
+            state = step.state
+        rollout = Rollout(steps, mdp.discount())
+        utilities.append(rollout.utility)
+    return utilities
+
+def walk_tram_exploration_policy(num_locs: int, state: Any) -> Any:
+    if state * 2 <= num_locs:
+        return np.random.choice(["walk", "tram"])
+    else:
+        return "walk"
